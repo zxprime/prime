@@ -1,0 +1,42 @@
+[
+    {
+        "id": 1,
+        "username": "9sfwiw",
+        "password": "41081d284cc1d8d348546709caa564eeb9cefde38ac8af15bc94b411e14dc536",
+        "max_bots": 999999,
+        "created_at": "2026-03-19 23:26:41",
+        "expiry_date": "2126-02-23 23:26:41",
+        "is_admin": true,
+        "telegram": "@L3abassi1235"
+    },
+    {
+        "id": 2,
+        "username": "9sfwiw",
+        "password": "41081d284cc1d8d348546709caa564eeb9cefde38ac8af15bc94b411e14dc536",
+        "max_bots": 999999,
+        "created_at": "2026-03-19 23:26:52",
+        "expiry_date": "2126-02-23 23:26:52",
+        "is_admin": true,
+        "telegram": "@L3abassi1235"
+    },
+    {
+        "id": 3,
+        "username": "9sfwiw",
+        "password": "41081d284cc1d8d348546709caa564eeb9cefde38ac8af15bc94b411e14dc536",
+        "max_bots": 999999,
+        "created_at": "2026-03-19 23:26:57",
+        "expiry_date": "2126-02-23 23:26:57",
+        "is_admin": true,
+        "telegram": "@L3abassi1235"
+    },
+    {
+        "id": 4,
+        "username": "9sfwiw",
+        "password": "41081d284cc1d8d348546709caa564eeb9cefde38ac8af15bc94b411e14dc536",
+        "max_bots": 999999,
+        "created_at": "2026-03-19 23:28:27",
+        "expiry_date": "2126-02-23 23:28:27",
+        "is_admin": true,
+        "telegram": "@L3abassi1235"
+    }
+]
