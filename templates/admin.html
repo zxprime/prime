@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PANELE BOT - لوحة الأدمن</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="floating-menu">
+        <button onclick="showAddUserModal()" title="إضافة مستخدم">
+            <i class="fas fa-user-plus"></i>
+        </button>
+        <button onclick="showAddLinkModal()" title="إضافة رابط">
+            <i class="fas fa-link"></i>
+        </button>
+        <button onclick="window.location.href='/dashboard'" title="لوحة المستخدم">
+            <i class="fas fa-home"></i>
+        </button>
+        <button onclick="logout()" title="تسجيل الخروج">
+            <i class="fas fa-sign-out-alt"></i>
+        </button>
+    </div>
+
+    <div class="container">
+        <div class="stats-grid">
+            <div class="stat-card">
+                <i class="fas fa-users"></i>
+                <span class="stat-value">{{ users|length }}</span>
+                <span class="stat-label">مستخدم</span>
+            </div>
+            <div class="stat-card">
+                <i class="fas fa-robot"></i>
+                <span class="stat-value">{{ bots|length }}</span>
+                <span class="stat-label">بوت</span>
+            </div>
+            <div class="stat-card">
+                <i class="fas fa-play"></i>
+                <span class="stat-value">{{ bots|selectattr('status', 'equalto', 'running')|list|length }}</span>
+                <span class="stat-label">يعمل</span>
+            </div>
+            <div class="stat-card">
+                <i class="fas fa-stop"></i>
+                <span class="stat-value">{{ bots|selectattr('status', 'equalto', 'stopped')|list|length }}</span>
+                <span class="stat-label">متوقف</span>
+            </div>
+        </div>
+
+        <div class="section-header">
+            <h2><i class="fas fa-users-cog"></i> المستخدمين</h2>
+            <button class="btn-create" onclick="showAddUserModal()">
+                <i class="fas fa-plus"></i> مستخدم جديد
+            </button>
+        </div>
+
+        <div class="users-table">
+            <table>
+                <thead>
+                    <tr>
+                        <th>المستخدم</th>
+                        <th>التليجرام</th>
+                        <th>البوتات</th>
+                        <th>الحد الأقصى</th>
+                        <th>تاريخ الإنشاء</th>
+                        <th>تنتهي في</th>
+                        <th>التحكم</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in users if not user.is_admin %}
+                    <tr>
+                        <td><i class="fas fa-user"></i> {{ user.username }}</td>
+                        <td>{{ user.telegram or '—' }}</td>
+                        <td>{{ bots|selectattr('user_id', 'equalto', user.id)|list|length }}</td>
+                        <td>{{ user.max_bots }}</td>
+                        <td>{{ user.created_at[:10] }}</td>
+                        <td>
+                            <span class="{% if user.expiry_date[:10] < now.strftime('%Y-%m-%d') %}expired{% endif %}">
+                                {{ user.expiry_date[:10] }}
+                            </span>
+                        </td>
+                        <td>
+                            <button class="btn-icon" onclick="viewUserBots({{ user.id }})" title="عرض البوتات">
+                                <i class="fas fa-robot"></i>
+                            </button>
+                            <button class="btn-icon" onclick="editUser({{ user.id }})" title="تعديل">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn-icon" onclick="deleteUser({{ user.id }})" title="حذف">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="section-header" style="margin-top: 40px;">
+            <h2><i class="fas fa-link"></i> الروابط السريعة</h2>
+        </div>
+
+        <div class="links-grid">
+            {% for link in links %}
+            <div class="link-card">
+                <div class="link-icon">
+                    <i class="{{ link.icon }}"></i>
+                </div>
+                <div class="link-info">
+                    <h4>{{ link.name }}</h4>
+                    <p>{{ link.url[:30] }}...</p>
+                </div>
+                <button class="btn-icon" onclick="deleteLink({{ link.id }})" title="حذف الرابط">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+            {% endfor %}
+            
+            <div class="link-card add-link" onclick="showAddLinkModal()">
+                <i class="fas fa-plus"></i>
+                <span>إضافة رابط</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- نافذة إضافة مستخدم -->
+    <div class="modal" id="addUserModal">
+        <div class="modal-content">
+            <h3><i class="fas fa-user-plus"></i> إضافة مستخدم جديد</h3>
+            <input type="text" id="new_username" placeholder="اسم المستخدم" required>
+            <input type="text" id="new_password" placeholder="كلمة المرور" required>
+            <input type="text" id="new_telegram" placeholder="@username (اختياري)">
+            <div class="form-row">
+                <input type="number" id="new_days" placeholder="عدد الأيام" value="30" min="1">
+                <input type="number" id="new_max_bots" placeholder="عدد البوتات" value="5" min="1">
+            </div>
+            <div class="modal-buttons">
+                <button onclick="createUser()" class="btn-save">
+                    <i class="fas fa-check"></i> إنشاء
+                </button>
+                <button onclick="closeModal('addUserModal')" class="btn-cancel">
+                    <i class="fas fa-times"></i> إلغاء
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- نافذة تعديل مستخدم -->
+    <div class="modal" id="editUserModal">
+        <div class="modal-content">
+            <h3><i class="fas fa-edit"></i> تعديل المستخدم</h3>
+            <input type="hidden" id="edit_user_id">
+            <input type="text" id="edit_username" placeholder="اسم المستخدم">
+            <input type="text" id="edit_password" placeholder="كلمة المرور (اترك فارغاً إذا لا تريد التغيير)">
+            <input type="text" id="edit_telegram" placeholder="@username">
+            <div class="form-row">
+                <input type="number" id="edit_days" placeholder="عدد الأيام للإضافة" value="30" min="1">
+                <input type="number" id="edit_max_bots" placeholder="عدد البوتات" min="1">
+            </div>
+            <div class="modal-buttons">
+                <button onclick="saveUserEdit()" class="btn-save">
+                    <i class="fas fa-save"></i> حفظ
+                </button>
+                <button onclick="closeModal('editUserModal')" class="btn-cancel">
+                    <i class="fas fa-times"></i> إلغاء
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- نافذة إضافة رابط -->
+    <div class="modal" id="addLinkModal">
+        <div class="modal-content">
+            <h3><i class="fas fa-plus-circle"></i> إضافة رابط جديد</h3>
+            <p class="modal-note">هذا الرابط سيظهر في القائمة الجانبية لجميع المستخدمين</p>
+            <input type="text" id="link_name" placeholder="اسم الرابط (مثال: تليجرام المطور)" required>
+            <input type="url" id="link_url" placeholder="الرابط (https://...)" required>
+            <input type="text" id="link_icon" placeholder="الأيقونة (مثال: fab fa-telegram)" value="fas fa-link">
+            <div class="icon-hint">
+                <i class="fas fa-info-circle"></i>
+                أيقونات متاحة: fab fa-telegram, fab fa-youtube, fab fa-discord, fas fa-globe, etc.
+            </div>
+            <div class="modal-buttons">
+                <button onclick="createLink()" class="btn-save">
+                    <i class="fas fa-plus"></i> إضافة
+                </button>
+                <button onclick="closeModal('addLinkModal')" class="btn-cancel">
+                    <i class="fas fa-times"></i> إلغاء
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function logout() {
+            if(confirm('تسجيل الخروج؟')) {
+                window.location.href = '/logout';
+            }
+        }
+
+        function showAddUserModal() {
+            document.getElementById('addUserModal').style.display = 'flex';
+        }
+
+        function showAddLinkModal() {
+            document.getElementById('addLinkModal').style.display = 'flex';
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).style.display = 'none';
+        }
+
+        function createUser() {
+            const username = document.getElementById('new_username').value;
+            const password = document.getElementById('new_password').value;
+            const days = document.getElementById('new_days').value;
+            const max_bots = document.getElementById('new_max_bots').value;
+            
+            if(!username || !password) {
+                alert('الرجاء إدخال اسم المستخدم وكلمة المرور');
+                return;
+            }
+            
+            const data = {
+                username: username,
+                password: password,
+                telegram: document.getElementById('new_telegram').value,
+                days: parseInt(days),
+                max_bots: parseInt(max_bots)
+            };
+            
+            fetch('/create_user', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            })
+            .then(r => r.json())
+            .then(d => { 
+                if(d.success) {
+                    alert('✅ تم إنشاء المستخدم بنجاح');
+                    location.reload();
+                } else {
+                    alert('❌ خطأ: ' + d.error);
+                }
+            });
+        }
+
+        function createLink() {
+            const name = document.getElementById('link_name').value;
+            const url = document.getElementById('link_url').value;
+            const icon = document.getElementById('link_icon').value;
+            
+            if(!name || !url) {
+                alert('الرجاء إدخال اسم الرابط والرابط');
+                return;
+            }
+            
+            const data = {
+                name: name,
+                url: url,
+                icon: icon || 'fas fa-link'
+            };
+            
+            fetch('/add_link', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            })
+            .then(r => r.json())
+            .then(d => { 
+                if(d.success) {
+                    alert('✅ تم إضافة الرابط بنجاح');
+                    location.reload();
+                } else {
+                    alert('❌ خطأ: ' + d.error);
+                }
+            });
+        }
+
+        function deleteLink(id) {
+            if(confirm('هل أنت متأكد من حذف هذا الرابط؟')) {
+                fetch('/delete_link/' + id, {method: 'POST'})
+                .then(r => r.json())
+                .then(d => { 
+                    if(d.success) {
+                        alert('✅ تم حذف الرابط بنجاح');
+                        location.reload();
+                    } else {
+                        alert('❌ خطأ: ' + d.error);
+                    }
+                });
+            }
+        }
+
+        function viewUserBots(id) {
+            window.location.href = '/admin/user/' + id;
+        }
+
+        function editUser(id) {
+            fetch('/get_user/' + id)
+            .then(r => r.json())
+            .then(user => {
+                document.getElementById('edit_user_id').value = user.id;
+                document.getElementById('edit_username').value = user.username;
+                document.getElementById('edit_telegram').value = user.telegram || '';
+                document.getElementById('edit_max_bots').value = user.max_bots;
+                document.getElementById('edit_password').value = '';
+                document.getElementById('edit_days').value = '30';
+                document.getElementById('editUserModal').style.display = 'flex';
+            });
+        }
+
+        function saveUserEdit() {
+            const id = document.getElementById('edit_user_id').value;
+            const data = {};
+            
+            if(document.getElementById('edit_username').value) {
+                data.username = document.getElementById('edit_username').value;
+            }
+            if(document.getElementById('edit_password').value) {
+                data.password = document.getElementById('edit_password').value;
+            }
+            if(document.getElementById('edit_telegram').value) {
+                data.telegram = document.getElementById('edit_telegram').value;
+            }
+            if(document.getElementById('edit_max_bots').value) {
+                data.max_bots = parseInt(document.getElementById('edit_max_bots').value);
+            }
+            if(document.getElementById('edit_days').value) {
+                data.days = parseInt(document.getElementById('edit_days').value);
+            }
+            
+            fetch('/edit_user/' + id, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            })
+            .then(r => r.json())
+            .then(d => {
+                if(d.success) {
+                    alert('✅ تم تعديل المستخدم بنجاح');
+                    location.reload();
+                } else {
+                    alert('❌ خطأ: ' + d.error);
+                }
+            });
+        }
+
+        function deleteUser(id) {
+            if(confirm('⚠️ هل أنت متأكد من حذف هذا المستخدم نهائياً؟\nسيتم حذف جميع بوتاته أيضاً!')) {
+                fetch('/delete_user/' + id, {method: 'POST'})
+                .then(r => r.json())
+                .then(d => { 
+                    if(d.success) {
+                        alert('✅ تم حذف المستخدم بنجاح');
+                        location.reload();
+                    } else {
+                        alert('❌ خطأ: ' + d.error);
+                    }
+                });
+            }
+        }
+    </script>
+</body>
+</html>

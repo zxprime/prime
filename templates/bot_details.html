@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PANELE BOT - تفاصيل البوت</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="sidebar">
+        <a href="{% if session.get('is_admin') %}/admin/user/{{ bot.user_id }}{% else %}/dashboard{% endif %}" class="menu-item">
+            <i class="fas fa-arrow-right"></i>
+            <span>العودة</span>
+        </a>
+        <div class="divider"></div>
+        <a href="#" class="menu-item" onclick="logout()">
+            <i class="fas fa-sign-out-alt"></i>
+            <span>تسجيل الخروج</span>
+        </a>
+    </div>
+
+    <div class="container">
+        <a href="{% if session.get('is_admin') %}/admin/user/{{ bot.user_id }}{% else %}/dashboard{% endif %}" class="back-link">
+            <i class="fas fa-arrow-right"></i> العودة
+        </a>
+
+        <div class="bot-details-card">
+            <div class="bot-header">
+                <div class="bot-icon-large">
+                    <i class="fas fa-robot"></i>
+                </div>
+                <div class="bot-info">
+                    <h2>{{ bot.display_name }}</h2>
+                    <p class="bot-status {{ bot.status }}">
+                        <i class="fas fa-circle"></i>
+                        {{ 'يعمل' if bot.status == 'running' else 'متوقف' }}
+                    </p>
+                </div>
+            </div>
+
+            <div class="config-section">
+                <h3><i class="fas fa-cog"></i> الإعدادات</h3>
+                
+                <div class="config-item">
+                    <span class="label">الأيدي (UID):</span>
+                    <span class="value" id="uid_val">{{ bot.uid }}</span>
+                    <button class="btn-edit" onclick="editField('uid')">
+                        <i class="fas fa-edit"></i> تعديل
+                    </button>
+                </div>
+                
+                <div class="config-item">
+                    <span class="label">كلمة المرور:</span>
+                    <span class="value" id="pass_val">••••••••</span>
+                    <button class="btn-edit" onclick="editField('password')">
+                        <i class="fas fa-edit"></i> تعديل
+                    </button>
+                </div>
+                
+                <div class="config-item">
+                    <span class="label">اسم البوت:</span>
+                    <span class="value" id="name_val">{{ bot.name }}</span>
+                    <button class="btn-edit" onclick="editField('bot_name')">
+                        <i class="fas fa-edit"></i> تعديل
+                    </button>
+                </div>
+                
+                <div class="config-item">
+                    <span class="label">الاسم المعروض:</span>
+                    <span class="value" id="display_val">{{ bot.display_name }}</span>
+                    <button class="btn-edit" onclick="editField('display_name')">
+                        <i class="fas fa-edit"></i> تعديل
+                    </button>
+                </div>
+            </div>
+
+            <div class="control-section">
+                {% if bot.status == 'running' %}
+                <button class="btn-control btn-stop" onclick="controlBot('stop')">
+                    <i class="fas fa-stop"></i> إيقاف
+                </button>
+                <button class="btn-control btn-restart" onclick="controlBot('restart')">
+                    <i class="fas fa-sync-alt"></i> إعادة تشغيل
+                </button>
+                {% else %}
+                <button class="btn-control btn-start" onclick="controlBot('start')">
+                    <i class="fas fa-play"></i> تشغيل
+                </button>
+                {% endif %}
+                <button class="btn-control btn-delete" onclick="deleteBot()">
+                    <i class="fas fa-trash"></i> حذف البوت
+                </button>
+            </div>
+
+            <div class="players-section">
+                <h3><i class="fas fa-users"></i> اللاعبين المضافين</h3>
+                
+                <div class="add-player-form">
+                    <input type="text" id="player_uid" placeholder="أيدي اللاعب">
+                    <input type="text" id="duration" placeholder="المدة (1d أو 24h)">
+                    <button onclick="addPlayer()">
+                        <i class="fas fa-plus"></i> إضافة
+                    </button>
+                </div>
+
+                <div id="players_list">
+                    {% for player in players %}
+                    <div class="player-item" id="player_{{ player.id }}">
+                        <div class="player-info">
+                            <strong>{{ player.name }}</strong>
+                            <span>{{ player.uid }}</span>
+                            <small>المستوى: {{ player.level }} | المنطقة: {{ player.region }}</small>
+                        </div>
+                        <div class="player-time">
+                            <span>{{ player.remaining_days }}d {{ player.remaining_hours }}h</span>
+                            <button onclick="removePlayer({{ player.id }})" title="حذف الصديق">
+                                <i class="fas fa-user-minus"></i>
+                            </button>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- نافذة التعديل -->
+    <div class="modal" id="editModal">
+        <div class="modal-content">
+            <h3 id="modalTitle">تعديل</h3>
+            <input type="text" id="editValue" placeholder="القيمة الجديدة">
+            <div class="modal-buttons">
+                <button onclick="saveEdit()" class="btn-save">حفظ</button>
+                <button onclick="closeModal()" class="btn-cancel">إلغاء</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentField = '';
+        
+        function logout() {
+            if(confirm('تسجيل الخروج؟')) window.location.href = '/logout';
+        }
+
+        function controlBot(action) {
+            const btn = event.target;
+            btn.disabled = true;
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري...';
+            
+            fetch('/bot_action', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({bot_id: {{ bot.id }}, action: action})
+            })
+            .then(r => r.json())
+            .then(d => { 
+                if(d.success) {
+                    location.reload();
+                } else {
+                    btn.disabled = false;
+                    btn.innerHTML = originalText;
+                    alert('❌ ' + d.error);
+                }
+            })
+            .catch(() => {
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+                alert('❌ حدث خطأ في الاتصال');
+            });
+        }
+
+        function deleteBot() {
+            if(confirm('⚠️ هل أنت متأكد من حذف هذا البوت نهائياً؟')) {
+                fetch('/delete_bot/{{ bot.id }}', {method: 'POST'})
+                .then(r => r.json())
+                .then(d => { 
+                    if(d.success) {
+                        alert('✅ تم حذف البوت بنجاح');
+                        window.location.href = '{% if session.get("is_admin") %}/admin/user/{{ bot.user_id }}{% else %}/dashboard{% endif %}';
+                    } else {
+                        alert('❌ ' + d.error);
+                    }
+                });
+            }
+        }
+
+        function editField(field) {
+            currentField = field;
+            const titles = {
+                'uid': 'تعديل الأيدي',
+                'password': 'تعديل كلمة المرور',
+                'bot_name': 'تعديل اسم البوت',
+                'display_name': 'تعديل الاسم المعروض'
+            };
+            document.getElementById('modalTitle').innerText = titles[field] || 'تعديل';
+            document.getElementById('editValue').value = '';
+            document.getElementById('editModal').style.display = 'flex';
+        }
+
+        function closeModal() {
+            document.getElementById('editModal').style.display = 'none';
+        }
+
+        function saveEdit() {
+            const value = document.getElementById('editValue').value;
+            if(!value) {
+                alert('الرجاء إدخال القيمة');
+                return;
+            }
+
+            const data = {};
+            data[currentField] = value;
+
+            fetch('/edit_bot/{{ bot.id }}', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            })
+            .then(r => r.json())
+            .then(d => { 
+                if(d.success) {
+                    alert('✅ تم التعديل بنجاح');
+                    location.reload();
+                } else {
+                    alert('❌ ' + d.error);
+                }
+            });
+        }
+
+        function addPlayer() {
+            const uid = document.getElementById('player_uid').value;
+            const dur = document.getElementById('duration').value;
+            if(!uid || !dur) {
+                alert('الرجاء إدخال أيدي اللاعب والمدة');
+                return;
+            }
+
+            const btn = event.target;
+            btn.disabled = true;
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري...';
+
+            fetch('/add_player', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    bot_id: {{ bot.id }},
+                    player_uid: uid,
+                    duration: dur
+                })
+            })
+            .then(r => r.json())
+            .then(d => {
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+                
+                if(d.success) {
+                    alert(d.message || '✅ تم إرسال طلب الصداقة بنجاح');
+                    location.reload();
+                } else {
+                    alert(d.error || '❌ حدث خطأ ما ولم يتم الإرسال');
+                }
+            })
+            .catch(() => {
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+                alert('❌ حدث خطأ في الاتصال');
+            });
+        }
+
+        function removePlayer(id) {
+            if(confirm('هل أنت متأكد من حذف هذا اللاعب؟')) {
+                const btn = event.target;
+                btn.disabled = true;
+                const originalText = btn.innerHTML;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
+                fetch('/remove_player', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({player_id: id})
+                })
+                .then(r => r.json())
+                .then(d => {
+                    btn.disabled = false;
+                    btn.innerHTML = originalText;
+                    
+                    if(d.success) {
+                        alert(d.message || '✅ تم الحذف بنجاح');
+                        location.reload();
+                    } else {
+                        alert(d.error || '❌ حدث خطأ ما ولم يتم الحذف');
+                    }
+                })
+                .catch(() => {
+                    btn.disabled = false;
+                    btn.innerHTML = originalText;
+                    alert('❌ حدث خطأ في الاتصال');
+                });
+            }
+        }
+    </script>
+</body>
+</html>

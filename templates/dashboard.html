@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PANELE BOT - لوحة التحكم</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="sidebar">
+        <a href="/dashboard" class="menu-item active">
+            <i class="fas fa-home"></i>
+            <span>الرئيسية</span>
+        </a>
+        <a href="/create_bot" class="menu-item">
+            <i class="fas fa-plus-circle"></i>
+            <span>إنشاء بوت</span>
+        </a>
+        
+        <!-- الروابط السريعة من الأدمن -->
+        {% if links %}
+        <div class="divider"></div>
+        <div class="sidebar-title">روابط سريعة</div>
+        {% for link in links %}
+        <a href="{{ link.url }}" target="_blank" class="menu-item quick-link" title="{{ link.name }}">
+            <i class="{{ link.icon }}"></i>
+            <span>{{ link.name }}</span>
+        </a>
+        {% endfor %}
+        {% endif %}
+        
+        <div class="divider"></div>
+        <a href="#" class="menu-item" onclick="logout()">
+            <i class="fas fa-sign-out-alt"></i>
+            <span>تسجيل الخروج</span>
+        </a>
+    </div>
+
+    <!-- الروابط السريعة العائمة (اختياري) -->
+    {% if links %}
+    <div class="quick-links">
+        {% for link in links %}
+        <a href="{{ link.url }}" target="_blank" class="quick-link" title="{{ link.name }}">
+            <i class="{{ link.icon }}"></i>
+        </a>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="container">
+        <div class="welcome-section">
+            <h1>مرحباً {{ user.username }}</h1>
+            <div class="user-stats">
+                <span><i class="fas fa-robot"></i> البوتات: {{ bots|length }}/{{ user.max_bots }}</span>
+                <span><i class="fas fa-calendar"></i> تنتهي في: {{ user.expiry_date[:10] }}</span>
+            </div>
+        </div>
+
+        <div class="section-header">
+            <h2><i class="fas fa-robot"></i> البوتات الخاصة بك</h2>
+            <a href="/create_bot" class="btn-create">
+                <i class="fas fa-plus"></i> بوت جديد
+            </a>
+        </div>
+
+        {% if bots %}
+        <div class="bots-grid">
+            {% for bot in bots %}
+            <div class="bot-card" onclick="window.location.href='/bot/{{ bot.id }}'">
+                <div class="status {{ bot.status }}"></div>
+                <div class="bot-icon">
+                    <i class="fas fa-robot"></i>
+                </div>
+                <h3>{{ bot.display_name }}</h3>
+                <div class="bot-id">{{ bot.uid }}</div>
+                <div class="bot-actions" onclick="event.stopPropagation()">
+                    {% if bot.status == 'running' %}
+                    <button class="btn-stop" onclick="controlBot({{ bot.id }}, 'stop')">
+                        <i class="fas fa-stop"></i> إيقاف
+                    </button>
+                    {% else %}
+                    <button class="btn-start" onclick="controlBot({{ bot.id }}, 'start')">
+                        <i class="fas fa-play"></i> تشغيل
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <i class="fas fa-robot"></i>
+            <h3>لا يوجد بوتات</h3>
+            <p>أنشئ أول بوت الآن</p>
+            <a href="/create_bot" class="btn-create">إنشاء بوت</a>
+        </div>
+        {% endif %}
+    </div>
+
+    <script src="/static/script.js"></script>
+    <script>
+        function logout() {
+            if(confirm('تسجيل الخروج؟')) {
+                window.location.href = '/logout';
+            }
+        }
+        
+        function controlBot(id, action) {
+            const btn = event.target;
+            btn.disabled = true;
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري...';
+            
+            fetch('/bot_action', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({bot_id: id, action: action})
+            })
+            .then(r => r.json())
+            .then(d => { 
+                if(d.success) {
+                    location.reload();
+                } else {
+                    btn.disabled = false;
+                    btn.innerHTML = originalText;
+                    alert('خطأ: ' + d.error);
+                }
+            })
+            .catch(() => {
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+                alert('حدث خطأ في الاتصال');
+            });
+        }
+    </script>
+</body>
+</html>

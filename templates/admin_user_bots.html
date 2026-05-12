@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PANELE BOT - بوتات {{ user.username }}</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="floating-menu">
+        <button onclick="window.location.href='/admin'" title="العودة للوحة الأدمن">
+            <i class="fas fa-arrow-right"></i>
+        </button>
+        <button onclick="logout()" title="تسجيل الخروج">
+            <i class="fas fa-sign-out-alt"></i>
+        </button>
+    </div>
+
+    <div class="container">
+        <a href="/admin" class="back-link">
+            <i class="fas fa-arrow-right"></i> العودة للوحة الأدمن
+        </a>
+
+        <div class="section-header">
+            <h2><i class="fas fa-robot"></i> بوتات المستخدم: {{ user.username }}</h2>
+            <div class="user-info">
+                <span><i class="fas fa-calendar"></i> تنتهي في: {{ user.expiry_date[:10] }}</span>
+                <span><i class="fas fa-chart-line"></i> {{ bots|length }}/{{ user.max_bots }}</span>
+            </div>
+        </div>
+
+        {% if bots %}
+        <div class="bots-grid">
+            {% for bot in bots %}
+            <div class="bot-card" onclick="window.location.href='/bot/{{ bot.id }}'">
+                <div class="status {{ bot.status }}"></div>
+                <div class="bot-icon">
+                    <i class="fas fa-robot"></i>
+                </div>
+                <h3>{{ bot.display_name }}</h3>
+                <div class="bot-id">{{ bot.uid }}</div>
+                <div class="bot-status-text">{{ 'يعمل' if bot.status == 'running' else 'متوقف' }}</div>
+                <div class="bot-actions" onclick="event.stopPropagation()">
+                    {% if bot.status == 'running' %}
+                    <button class="btn-stop" onclick="controlBot({{ bot.id }}, 'stop')">
+                        <i class="fas fa-stop"></i> إيقاف
+                    </button>
+                    {% else %}
+                    <button class="btn-start" onclick="controlBot({{ bot.id }}, 'start')">
+                        <i class="fas fa-play"></i> تشغيل
+                    </button>
+                    {% endif %}
+                    <button class="btn-delete" onclick="deleteBot({{ bot.id }})">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <i class="fas fa-robot"></i>
+            <h3>لا يوجد بوتات لهذا المستخدم</h3>
+        </div>
+        {% endif %}
+    </div>
+
+    <script>
+        function logout() {
+            if(confirm('تسجيل الخروج؟')) {
+                window.location.href = '/logout';
+            }
+        }
+        
+        function controlBot(id, action) {
+            const btn = event.target;
+            btn.disabled = true;
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري...';
+            
+            fetch('/bot_action', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({bot_id: id, action: action})
+            })
+            .then(r => r.json())
+            .then(d => { 
+                if(d.success) {
+                    location.reload();
+                } else {
+                    btn.disabled = false;
+                    btn.innerHTML = originalText;
+                    alert('❌ خطأ: ' + d.error);
+                }
+            })
+            .catch(() => {
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+                alert('❌ حدث خطأ في الاتصال');
+            });
+        }
+        
+        function deleteBot(id) {
+            if(confirm('⚠️ هل أنت متأكد من حذف هذا البوت نهائياً؟')) {
+                fetch('/delete_bot/' + id, {method: 'POST'})
+                .then(r => r.json())
+                .then(d => { 
+                    if(d.success) {
+                        alert('✅ تم حذف البوت بنجاح');
+                        location.reload();
+                    } else {
+                        alert('❌ خطأ: ' + d.error);
+                    }
+                });
+            }
+        }
+    </script>
+</body>
+</html>
